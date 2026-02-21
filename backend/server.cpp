@@ -1,12 +1,9 @@
 #include <libwebsockets.h>
-#include <string.h>
+#include <queue>
+#include "game.cpp"
+#include "server.hpp"
 
-typedef struct __attribute__((packed)) client_message {
-	uint8_t player_id;
-	uint8_t key_down : 4;
-	uint8_t padding: 4;
-	char key;
-} ClientMessage;
+std::queue<ClientMessage> input_queue;
 
 static int callback(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len) {
 	switch(reason) {
@@ -15,6 +12,7 @@ static int callback(struct lws *wsi, enum lws_callback_reasons reason, void *use
 		break;
 	case LWS_CALLBACK_RECEIVE: {
 		ClientMessage cm = *(ClientMessage*)in;
+		input_queue.push(cm);
 		printf("MESSAGE RECIVED: player_id=%d, key_down=%d, key=%c\n", cm.player_id, cm.key_down, cm.key);
 		break;
 	}
@@ -45,8 +43,10 @@ int server_start() {
 	}
 	
 	printf("SERVER STARTED\n");
+	int i = 0;
 	while(1){
-		lws_service(context, 1000);
+		lws_service(context, 0);
+		game_update_state(input_queue);
 	}
 	lws_context_destroy(context);
 	return 0;
