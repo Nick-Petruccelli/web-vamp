@@ -27,6 +27,31 @@ function pack_message(msg: ClientInputMessage): ArrayBuffer {
         return out;
 }
 
+type PlayerState = {
+        x: number;
+        y: number;
+}
+
+type GameState = {
+        playerStates: PlayerState[];
+}
+
+function parse_game_state(data: ArrayBuffer): GameState {
+        const gameState: GameState = { playerStates: [] };
+        const dv = new DataView(data);
+        let offset = 0;
+        const numPlayers = dv.getInt8(offset);
+        offset += 1;
+        for (let _ = 0; _ < numPlayers; _++) {
+                const x = dv.getFloat32(offset);
+                offset += 4;
+                const y = dv.getFloat32(offset);
+                offset += 4;
+                gameState.playerStates.push({ x, y });
+        }
+        return gameState;
+}
+
 export default function GameScreen() {
         const keyRef = useRef<Record<string, boolean>>({});
         const wsRef = useRef<WebSocket | null>(null);
@@ -59,14 +84,22 @@ export default function GameScreen() {
                         window.removeEventListener('keydown', handleKeyDown);
                         window.removeEventListener('keyup', handleKeyUp);
                 }
-        });
-        wsRef.current = new WebSocket("ws://localhost:8080");
-        wsRef.current.addEventListener('open', (event) => {
-                console.log('web socket opened');
-        });
-        wsRef.current.addEventListener('message', (event) => {
-                console.log(`SERVER: ${event.data}`);
-        });
+        }, []);
+        useEffect(() => {
+                wsRef.current = new WebSocket("ws://localhost:8080");
+                wsRef.current.binaryType = 'arraybuffer';
+                wsRef.current.addEventListener('open', (event) => {
+                        console.log('web socket opened');
+                });
+                wsRef.current.addEventListener('message', (event) => {
+                        const gameState = parse_game_state(event.data);
+                        console.log(gameState);
+                });
+                return () => {
+                        if (wsRef.current)
+                                wsRef.current.close();
+                };
+        }, []);
         return (
                 <div>
                         <script src="game_canvas_script.ts" />
