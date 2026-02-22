@@ -55,6 +55,8 @@ function parse_game_state(data: ArrayBuffer): GameState {
 export default function GameScreen() {
         const keyRef = useRef<Record<string, boolean>>({});
         const wsRef = useRef<WebSocket | null>(null);
+        const gameStateRef = useRef<GameState | null>(null);
+        const canvasRef = useRef<HTMLCanvasElement | null>(null);
         useEffect(() => {
                 const handleKeyDown = (e: KeyboardEvent) => {
                         if (inputs.includes(e.key)) {
@@ -87,6 +89,7 @@ export default function GameScreen() {
                         window.removeEventListener('keyup', handleKeyUp);
                 }
         }, []);
+
         useEffect(() => {
                 wsRef.current = new WebSocket("ws://localhost:8080");
                 wsRef.current.binaryType = 'arraybuffer';
@@ -100,18 +103,44 @@ export default function GameScreen() {
                         for (let i = 0; i < buf.byteLength; i++) {
                                 console.log(`byte[${i}] = ${dv.getUint8(i)}`);
                         }
-                        const gameState = parse_game_state(event.data);
-                        console.log(gameState);
+                        gameStateRef.current = parse_game_state(event.data);
+                        console.log(gameStateRef.current);
                 });
                 return () => {
                         if (wsRef.current)
                                 wsRef.current.close();
                 };
         }, []);
+
+        useEffect(() => {
+                const canvas = canvasRef.current;
+                if (!canvas)
+                        return;
+                const canvas2d = canvas.getContext('2d');
+                if (!canvas2d)
+                        return;
+                let animFrameId: number;
+                const render = () => {
+                        const gameState = gameStateRef.current;
+                        if (!gameState) {
+                                animFrameId = requestAnimationFrame(render);
+                                return;
+                        }
+                        canvas2d.clearRect(0, 0, canvas.width, canvas.height);
+                        for (const player of gameState.playerStates) {
+                                canvas2d.fillStyle = 'red';
+                                canvas2d.fillRect(player.x, player.y, 20, 20);
+                        }
+                        animFrameId = requestAnimationFrame(render);
+                }
+                animFrameId = requestAnimationFrame(render);
+                return () => cancelAnimationFrame(animFrameId);
+        }, []);
+
         return (
                 <div>
                         <script src="game_canvas_script.ts" />
-                        <canvas id="gameCanvas" width="600" height="400" ></canvas>
+                        <canvas ref={canvasRef} width="600" height="400" ></canvas>
                 </div>
         );
 }
