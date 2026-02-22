@@ -13,17 +13,23 @@ std::set<struct lws*> clients_connected;
 auto tick_rate = std::chrono::milliseconds(1000 / 10);
 auto next_tick = std::chrono::steady_clock::now();
 
+GameState game_state = {};
+unsigned char *data_buff = NULL;
 unsigned char *data_to_send = NULL;
 size_t data_to_send_len = 0;
 
 
 static int callback(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len) {
 	switch(reason) {
-	case LWS_CALLBACK_ESTABLISHED:
+	case LWS_CALLBACK_ESTABLISHED: {
 		printf("CONNECTION ESTABLISHED\n");
 		clients_connected.insert(wsi);
-		printf("HIT");
+		int id = game_add_player(&game_state);
+		if(id < 0) {
+			printf("ERROR: game is full cant connect");
+		}
 		break;
+	}
 	case LWS_CALLBACK_RECEIVE: {
 		ClientMessage cm = *(ClientMessage*)in;
 		input_queue.push(cm);
@@ -58,7 +64,10 @@ void server_broadcast(unsigned char *data, size_t len) {
 
 void server_broadcast_game_state(GameState *game_state) {
 	size_t data_len = 1 + game_state->num_players * 8;
-	unsigned char game_state_data[LWS_PRE + data_len];
+	if(data_buff)
+		free(data_buff);
+	data_buff = (unsigned char *)malloc(LWS_PRE + data_len);
+	unsigned char *game_state_data = data_buff;
 	memset(game_state_data, 0, data_len + LWS_PRE);
 	int offset = LWS_PRE;
 	game_state_data[offset] = game_state->num_players;
@@ -76,8 +85,7 @@ int server_start() {
 	struct lws_context_creation_info context_info = {};
 	context_info.port = 8080;
 	context_info.protocols = protocals;
-	GameState game_state = {};
-	game_init_state(&game_state, 1);
+	game_init_state(&game_state, 10);
 
 	struct lws_context *context = lws_create_context(&context_info);
 	if(!context){
@@ -87,10 +95,9 @@ int server_start() {
 	
 	printf("SERVER STARTED\n");
 	int i = 0;
-	game_init_state(&game_state, 1);
 	while(1){
 		lws_service(context, 0);
-		game_update_state(&game_state, input_queue);
+		game_update(&game_state, input_queue);
 		server_broadcast_game_state(&game_state);
 		next_tick += tick_rate;
 		std::this_thread::sleep_until(next_tick);

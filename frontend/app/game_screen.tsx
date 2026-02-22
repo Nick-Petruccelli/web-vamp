@@ -43,9 +43,9 @@ function parse_game_state(data: ArrayBuffer): GameState {
         const numPlayers = dv.getInt8(offset);
         offset += 1;
         for (let _ = 0; _ < numPlayers; _++) {
-                const x = dv.getFloat32(offset);
+                const x = dv.getFloat32(offset, true);
                 offset += 4;
-                const y = dv.getFloat32(offset);
+                const y = dv.getFloat32(offset, true);
                 offset += 4;
                 gameState.playerStates.push({ x, y });
         }
@@ -76,7 +76,9 @@ export default function GameScreen() {
                         }
                         if (!keyRef.current[e.key]) return;
                         keyRef.current[e.key] = false;
-                        console.log(`KeyUp: ${e.key}`);
+                        const msg: ClientInputMessage = { playerId: 0, key: e.key, keyDown: false };
+                        console.log(`msg: playerId=${msg.playerId}, keyDown=${msg.keyDown}, key=${msg.key}`);
+                        wsRef.current?.send(pack_message(msg));
                 }
                 window.addEventListener('keydown', handleKeyDown);
                 window.addEventListener('keyup', handleKeyUp);
@@ -92,6 +94,12 @@ export default function GameScreen() {
                         console.log('web socket opened');
                 });
                 wsRef.current.addEventListener('message', (event) => {
+                        const buf = event.data;
+                        const dv = new DataView(buf);
+                        console.log("bytes received:", buf.byteLength);
+                        for (let i = 0; i < buf.byteLength; i++) {
+                                console.log(`byte[${i}] = ${dv.getUint8(i)}`);
+                        }
                         const gameState = parse_game_state(event.data);
                         console.log(gameState);
                 });
