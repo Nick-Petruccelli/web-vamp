@@ -28,10 +28,13 @@ static int callback(struct lws *wsi, enum lws_callback_reasons reason, void *use
 		if(id < 0) {
 			printf("ERROR: game is full cant connect");
 		}
+		*(int*)user = id;
 		break;
 	}
 	case LWS_CALLBACK_RECEIVE: {
 		ClientMessage cm = *(ClientMessage*)in;
+		int player_id = *(int*)user;
+		cm.player_id = player_id;
 		input_queue.push(cm);
 		printf("MESSAGE RECIVED: player_id=%d, key_down=%d, key=%c\n", cm.player_id, cm.key_down, cm.key);
 		break;
@@ -39,10 +42,13 @@ static int callback(struct lws *wsi, enum lws_callback_reasons reason, void *use
 	case LWS_CALLBACK_SERVER_WRITEABLE:
 		lws_write(wsi, data_to_send, data_to_send_len, LWS_WRITE_BINARY);	
 		break;
-	case LWS_CALLBACK_CLOSED:
+	case LWS_CALLBACK_CLOSED:{
 		printf("CONNECTION CLOSED\n");
 		clients_connected.erase(wsi);
+		int player_id = *(int*)user;
+		game_remove_player(&game_state, player_id);
 		break;
+	}
 	default:
 		break;
 	}
@@ -50,7 +56,7 @@ static int callback(struct lws *wsi, enum lws_callback_reasons reason, void *use
 }
 
 static struct lws_protocols protocals[] {
-	{"test-protocal", callback, 0, 10},
+	{"test-protocal", callback, 1, 10},
 	{NULL, NULL, 0, 0}
 };
 
