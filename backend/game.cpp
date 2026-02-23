@@ -101,16 +101,16 @@ void game_update_state(GameState *game_state) {
 	for(int i=0; i<game_state->num_players; i++) {
 		PlayerState *player = &game_state->player_states[i];
 		if(player->input_state.move_foward) {
-			player->y -= 5;
+			player->y -= 1;
 		}
 		if(player->input_state.move_backward) {
-			player->y += 5;
+			player->y += 1;
 		}
 		if(player->input_state.move_left) {
-			player->x -= 5;
+			player->x -= 1;
 		}
 		if(player->input_state.move_right) {
-			player->x += 5;
+			player->x += 1;
 		}
 		printf("Player:%d x=%f, y=%f\n", i, player->x, player->y);
 	}

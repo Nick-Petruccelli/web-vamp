@@ -10,7 +10,7 @@
 std::queue<ClientMessage> input_queue;
 std::set<struct lws*> clients_connected;
 
-auto tick_rate = std::chrono::milliseconds(1000 / 10);
+auto tick_rate = std::chrono::milliseconds(1000 / 60);
 auto next_tick = std::chrono::steady_clock::now();
 
 GameState game_state = {};
